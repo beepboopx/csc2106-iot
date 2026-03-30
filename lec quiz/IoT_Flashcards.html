@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IoT Interactive Quiz – Lecture Prep</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f1923; color: #e8eaf6; min-height: 100vh; }
+
+  header { background: linear-gradient(135deg, #1a237e, #283593); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
+  header h1 { font-size: 1.4rem; color: #fff; font-weight: 700; }
+  .exam-badge { background: #e53935; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 0.82rem; font-weight: 600; }
+
+  .stats-bar { display: flex; gap: 20px; padding: 10px 24px; background: #141e2d; border-bottom: 1px solid #1f2d3d; flex-wrap: wrap; align-items: center; }
+  .stat { font-size: 0.82rem; }
+  .stat span { font-weight: 700; }
+  .stat-correct span { color: #66bb6a; }
+  .stat-wrong span { color: #ef5350; }
+  .stat-remaining span { color: #90caf9; }
+  .streak-badge { font-size: 0.82rem; background: #3a2200; color: #ffcc80; padding: 3px 10px; border-radius: 10px; font-weight: 700; display: none; }
+
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 14px 24px; background: #141e2d; border-bottom: 1px solid #1f2d3d; }
+  select { background: #1e2d40; color: #e8eaf6; border: 1px solid #2d4263; padding: 7px 12px; border-radius: 6px; font-size: 0.88rem; cursor: pointer; }
+  .btn { padding: 8px 16px; border: none; border-radius: 6px; font-size: 0.88rem; cursor: pointer; font-weight: 600; transition: all 0.15s; font-family: inherit; }
+  .btn-primary { background: #1565c0; color: #fff; }
+  .btn-primary:hover { background: #1976d2; }
+  .btn-secondary { background: #263238; color: #cfd8dc; }
+  .btn-secondary:hover { background: #37474f; }
+  .btn-danger { background: #4a1010; color: #ef9a9a; }
+  .btn-danger:hover { background: #6a1515; }
+  .progress-text { color: #90caf9; font-size: 0.88rem; margin-left: auto; }
+
+  .main { display: flex; flex-direction: column; align-items: center; padding: 30px 20px; min-height: calc(100vh - 210px); }
+
+  .progress-bar-wrap { width: 100%; max-width: 760px; height: 6px; background: #1e2d40; border-radius: 3px; margin-bottom: 20px; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #1565c0, #42a5f5); border-radius: 3px; transition: width 0.3s; }
+
+  /* Quiz card */
+  .quiz-card { width: 100%; max-width: 760px; background: linear-gradient(135deg, #1a2744, #1e3a5f); border: 1px solid #2d4a7a; border-radius: 16px; padding: 28px 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+
+  .card-week { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: #64b5f6; margin-bottom: 14px; font-weight: 600; }
+  .card-type-badge { display: inline-block; font-size: 0.72rem; padding: 2px 10px; border-radius: 10px; margin-left: 8px; vertical-align: middle; }
+  .badge-tf { background: #4a1942; color: #ce93d8; }
+  .badge-multi { background: #1a3a4a; color: #80cbc4; }
+  .badge-num { background: #3a2a00; color: #ffcc80; }
+  .badge-single { background: #1a2a1a; color: #a5d6a7; }
+
+  .card-question { font-size: 1.1rem; line-height: 1.65; color: #e3f2fd; font-weight: 500; margin-bottom: 22px; }
+  .multi-hint { font-size: 0.78rem; color: #80cbc4; margin-bottom: 12px; }
+
+  /* Option buttons (single / TF / numerical) */
+  .options-list { display: flex; flex-direction: column; gap: 9px; }
+
+  .opt-btn {
+    padding: 11px 18px; border-radius: 10px; font-size: 0.93rem; cursor: pointer;
+    text-align: left; border: 2px solid #2a4270; background: #10203a; color: #b0bec5;
+    transition: border-color 0.12s, background 0.12s, color 0.12s;
+    font-family: inherit; width: 100%;
+  }
+  .opt-btn:hover:not(:disabled) { border-color: #4a80c4; background: #172d4e; color: #e3f2fd; }
+  .opt-btn:disabled { cursor: default; }
+  .opt-btn.correct  { background: rgba(56,142,60,0.22); border-color: #4caf50; color: #a5d6a7; font-weight: 700; }
+  .opt-btn.wrong-selected { background: rgba(198,40,40,0.22); border-color: #ef5350; color: #ef9a9a; font-weight: 700; }
+  .opt-btn.missed   { background: rgba(56,142,60,0.1);  border-color: #388e3c; color: #81c784; }
+
+  /* Multi-select option rows */
+  .opt-check-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 18px; border-radius: 10px; cursor: pointer;
+    border: 2px solid #2a4270; background: #10203a;
+    transition: border-color 0.12s, background 0.12s;
+    user-select: none;
+  }
+  .opt-check-row:hover { border-color: #4a80c4; background: #172d4e; }
+  .opt-check-row.selected { border-color: #5c9ede; background: #172d4e; }
+  .opt-check-row.correct  { background: rgba(56,142,60,0.22); border-color: #4caf50; }
+  .opt-check-row.wrong-selected { background: rgba(198,40,40,0.22); border-color: #ef5350; }
+  .opt-check-row.missed   { background: rgba(56,142,60,0.1);  border-color: #388e3c; }
+  .opt-check-row.disabled { cursor: default; pointer-events: none; }
+
+  .opt-check-box {
+    width: 18px; height: 18px; border-radius: 4px; border: 2px solid #4a6fa5;
+    background: #0d1b2e; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: background 0.12s, border-color 0.12s;
+  }
+  .opt-check-row.selected .opt-check-box { background: #1565c0; border-color: #42a5f5; }
+  .opt-check-row.correct .opt-check-box  { background: #2e7d32; border-color: #4caf50; }
+  .opt-check-row.wrong-selected .opt-check-box { background: #b71c1c; border-color: #ef5350; }
+  .opt-check-box svg { display: none; }
+  .opt-check-row.selected .opt-check-box svg,
+  .opt-check-row.correct .opt-check-box svg,
+  .opt-check-row.wrong-selected .opt-check-box svg { display: block; }
+
+  .opt-check-text { font-size: 0.93rem; color: #b0bec5; }
+  .opt-check-row.selected .opt-check-text { color: #e3f2fd; }
+  .opt-check-row.correct .opt-check-text  { color: #a5d6a7; font-weight: 700; }
+  .opt-check-row.wrong-selected .opt-check-text { color: #ef9a9a; font-weight: 700; }
+  .opt-check-row.missed .opt-check-text   { color: #81c784; font-weight: 700; }
+
+  /* Submit / result row */
+  .action-row { margin-top: 18px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .btn-submit {
+    padding: 10px 28px; background: #1565c0; color: #fff; border: none; border-radius: 8px;
+    font-size: 0.93rem; font-weight: 700; cursor: pointer; transition: background 0.15s; font-family: inherit;
+  }
+  .btn-submit:hover:not(:disabled) { background: #1976d2; }
+  .btn-submit:disabled { background: #263238; color: #546e7a; cursor: default; }
+
+  .result-feedback { display: flex; align-items: center; gap: 14px; width: 100%; padding-top: 18px; border-top: 1px solid #2d4a7a; margin-top: 18px; }
+  .result-icon { font-size: 1.5rem; flex-shrink: 0; }
+  .result-text { flex: 1; }
+  .result-label { font-weight: 700; font-size: 0.98rem; margin-bottom: 3px; }
+  .result-label.correct { color: #66bb6a; }
+  .result-label.wrong   { color: #ef5350; }
+  .result-detail { font-size: 0.8rem; color: #90a4ae; }
+  .btn-next {
+    padding: 10px 26px; background: #1565c0; color: #fff; border: none; border-radius: 8px;
+    font-size: 0.93rem; font-weight: 700; cursor: pointer; transition: background 0.15s;
+    font-family: inherit; white-space: nowrap; flex-shrink: 0;
+  }
+  .btn-next:hover { background: #1976d2; }
+
+  /* Nav */
+  .nav-row { display: flex; gap: 14px; align-items: center; margin-top: 22px; }
+  .nav-btn { width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+  .nav-prev { background: #1e2d40; color: #90caf9; }
+  .nav-prev:hover { background: #263d54; }
+  .nav-next-btn { background: #1e2d40; color: #90caf9; }
+  .nav-next-btn:hover { background: #263d54; }
+  .nav-num { color: #90caf9; font-size: 0.92rem; min-width: 100px; text-align: center; }
+
+  /* End screen */
+  .end-screen { width: 100%; max-width: 760px; text-align: center; padding: 48px 20px; }
+  .end-screen h2 { font-size: 2rem; margin-bottom: 10px; }
+  .final-score { font-size: 3.2rem; font-weight: 700; margin: 20px 0 8px; }
+  .final-score.great { color: #66bb6a; }
+  .final-score.ok    { color: #ffcc80; }
+  .final-score.low   { color: #ef5350; }
+  .end-detail { color: #90caf9; font-size: 0.92rem; margin-bottom: 28px; }
+  .end-screen .btn { margin: 5px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📡 IoT Interactive Quiz</h1>
+  <span class="exam-badge">🗓 Exam: 2 Apr · 9:15 AM · 50 Qs</span>
+</header>
+
+<div class="stats-bar">
+  <div class="stat stat-correct">✅ Correct: <span id="scoreCorrect">0</span></div>
+  <div class="stat stat-wrong">❌ Wrong: <span id="scoreWrong">0</span></div>
+  <div class="stat stat-remaining">📋 Remaining: <span id="scoreRemaining">0</span></div>
+  <div class="streak-badge" id="streakBadge">🔥 Streak: <span id="streakCount">0</span></div>
+</div>
+
+<div class="controls">
+  <select id="weekFilter"><option value="all">All Topics</option></select>
+  <select id="typeFilter">
+    <option value="all">All Types</option>
+    <option value="single">Single Choice</option>
+    <option value="multi">Multiple Choice</option>
+    <option value="tf">True/False</option>
+    <option value="numerical">Numerical</option>
+  </select>
+  <button class="btn btn-secondary" onclick="toggleShuffle()">🔀 Shuffle</button>
+  <button class="btn btn-danger" onclick="resetQuiz()">🔄 Reset</button>
+  <span class="progress-text" id="progressText"></span>
+</div>
+
+<div class="main" id="mainArea">
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+  </div>
+
+  <div class="quiz-card" id="quizCard">
+    <div class="card-week" id="cardWeek"></div>
+    <div class="card-question" id="cardQuestion"></div>
+    <div class="multi-hint" id="multiHint" style="display:none">Select all that apply, then click Submit.</div>
+    <div class="options-list" id="optionsList"></div>
+    <div id="submitArea"></div>
+    <div class="result-feedback" id="resultFeedback" style="display:none">
+      <div class="result-icon" id="resultIcon"></div>
+      <div class="result-text">
+        <div class="result-label" id="resultLabel"></div>
+        <div class="result-detail" id="resultDetail"></div>
+      </div>
+      <button class="btn-next" id="nextBtn" onclick="advance()">Next →</button>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="nav-btn nav-prev" onclick="goTo(currentIndex - 1)" title="Previous (←)">‹</button>
+    <span class="nav-num" id="navNum">1 / 0</span>
+    <button class="nav-btn nav-next-btn" onclick="goTo(currentIndex + 1)" title="Next (→)">›</button>
+  </div>
+</div>
+
+<script>
+const ALL_QUESTIONS = [
+  {"week":"Week 1: IoT Fundamentals","q":"The various factors (range, power, data rate, scalability, security and cost) have the same level of importance in any IoT solution.","options":["True","False"],"answer":["False"],"type":"tf"},
+  {"week":"Week 1: IoT Fundamentals","q":"Which of the following technology uses 2.4GHz frequency? (Select all that apply)","options":["Bluetooth/BLE","Z-Wave","ZigBee","Weightless","Wireless HART","WiFi","SigFox","NB-IoT","LoRa","2G/3G"],"answer":["Bluetooth/BLE","ZigBee","Wireless HART","WiFi","LoRa"],"type":"multi"},
+  {"week":"Week 1: IoT Fundamentals","q":"IoT refers to ... (select the best answer)","options":["Interconnections of devices in a network","Exchange of data between devices in a network","All of them","An ecosystem of devices, accessible through internet"],"answer":["All of them"],"type":"single"},
+  {"week":"Week 1: IoT Fundamentals","q":"Which choice represents the ultimate aim for IoT?","options":["To connect as many 'things' together","To transform raw data into insights","To collect as much data as possible","To reduce network bandwidth"],"answer":["To transform raw data into insights"],"type":"single"},
+  {"week":"Week 1: IoT Fundamentals","q":"Which of the following allows heterogeneous systems to communicate and interact with each other?","options":["Operating System","Hardware","Application","Middleware"],"answer":["Middleware"],"type":"single"},
+  {"week":"Week 1: IoT Fundamentals","q":"Which of the following supports the longest range?","options":["WiFi","ZigBee","BLE","LoRa"],"answer":["LoRa"],"type":"single"},
+  {"week":"Week 1: IoT Fundamentals","q":"Which of the following is NOT a component in an IoT device?","options":["Controller","Sensor","Power Supply","Communication","Actuator"],"answer":["Power Supply"],"type":"single"},
+  {"week":"Week 1: IoT Fundamentals","q":"Devices in IoT support ... (select the best answer)","options":["Actuating","Data collection","Sensing","All of them"],"answer":["All of them"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"What does REST stand for?","options":["Relative State Transmission","Real-time State Transfer","Remote Server Transaction","Representational State Transfer"],"answer":["Representational State Transfer"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"What type of architecture does RESTful APIs follow?","options":["Client-server architecture","Monolithic architecture","Microservices architecture","Peer-to-peer architecture","Publisher-Subscriber architecture"],"answer":["Client-server architecture"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"What does idempotence mean in the context of RESTful APIs?","options":["The API produces different results with each request","The API encrypts data for security","The API produces the same result no matter how many times the same request is made","The API can handle asynchronous requests"],"answer":["The API produces the same result no matter how many times the same request is made"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"What mechanism does RESTful APIs use to indicate the current state of the resource?","options":["HTTP headers","HTTP status codes","API tokens","Response body"],"answer":["HTTP status codes"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"Which of the following is NOT a constraint of RESTful architecture?","options":["Client-server architecture","Cookie-based authentication","Cacheability","Statelessness"],"answer":["Cookie-based authentication"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"Which HTTP status code indicates a successful GET request?","options":["201 Created","500 Internal Server Error","400 Bad Request","200 OK"],"answer":["200 OK"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"In RESTful APIs, what does a status code in the 5xx range signify?","options":["Client error","Server error","Redirection","Successful operation"],"answer":["Server error"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"What HTTP method is used to CREATE a new resource in RESTful architecture?","options":["POST","GET","PUT","DELETE"],"answer":["POST"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"What is a resource in the context of RESTful web services?","options":["A set of procedures for accessing a database","An entity that can be accessed and manipulated through a URI","A function that performs a specific action","A container for storing data in a web application"],"answer":["An entity that can be accessed and manipulated through a URI"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"Which HTTP method is used to RETRIEVE a resource in RESTful architecture?","options":["GET","DELETE","PUT","POST"],"answer":["GET"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"What is the primary role of a RESTful API's Uniform Interface constraint?","options":["To standardize the way clients interact with the server","To separate client and server implementations","To define specific operations like GET and POST","To ensure that the API is stateful"],"answer":["To standardize the way clients interact with the server"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"Which HTTP method should be used to UPDATE an existing resource in RESTful web services?","options":["POST","GET","DELETE","PUT"],"answer":["PUT"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"In RESTful APIs, what is the purpose of a payload in a POST request?","options":["To carry control information","To provide additional headers","To contain the data being sent by the client","To deliver the client's request to the server"],"answer":["To contain the data being sent by the client"],"type":"single"},
+  {"week":"Week 2: RESTful APIs","q":"In RESTful APIs, what is used to uniquely identify a resource?","options":["API key","URI (Uniform Resource Identifier)","Query parameters","Session ID"],"answer":["URI (Uniform Resource Identifier)"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"What does CoAP stand for?","options":["Control Application Protocol","Compact Application Protocol","Common Application Protocol","Constrained Application Protocol"],"answer":["Constrained Application Protocol"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"Which OSI layer is CoAP?","options":["Service layer","Control layer","Application layer","Transport layer"],"answer":["Application layer"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"Which protocol is CoAP closely modeled after?","options":["MQTT","FTP","HTTP","AMQP"],"answer":["HTTP"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"What transport layer protocol does CoAP use?","options":["REST","UDP","ICMP","TCP"],"answer":["UDP"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"CoAP is specialized in?","options":["Wireless applications","Wired applications","Internet applications","Device applications"],"answer":["Internet applications"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"CoAP Protocol sub-layers include: (Select all that apply)","options":["Observation","UDP","Message","Request & Response"],"answer":["Message","Request & Response"],"type":"multi"},
+  {"week":"Week 3: CoAP & MQTT","q":"CoAP supports which HTTP-like methods? (Select all that apply)","options":["GET","POST","PUT","DELETE","OPTIONS","HEAD","CONNECT","TRACE","PATCH"],"answer":["GET","POST","PUT","DELETE"],"type":"multi"},
+  {"week":"Week 3: CoAP & MQTT","q":"CoAP is a specialised _________ protocol.","options":["Web transfer","Power","Resource","Application"],"answer":["Application"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"CoAP messages can be of which types?","options":["Request and Response","Synchronous and Asynchronous","Persistent and Transient","Confirmable and Non-Confirmable"],"answer":["Confirmable and Non-Confirmable"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"CoAP provides which requirements?","options":["Simplicity and low overhead","Multicast support","Lower overhead and simplicity","Multicast support and simplicity","Lower overhead and multicast support"],"answer":["Multicast support and simplicity"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"The core of the CoAP protocol is specified in?","options":["RFC 7252","RFC 7452","RFC 7524","RFC 7254"],"answer":["RFC 7252"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"What type of protocol is MQTT?","options":["Transport protocol","Network protocol","Presentation protocol","Application protocol"],"answer":["Application protocol"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"MQTT is _______ oriented.","options":["Data","Message","Device","Network"],"answer":["Message"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"The Last Will Message in MQTT is used to:","options":["Notify clients of a failure in the publisher","Guarantee that the message was delivered","Notify a publisher of a network failure","Gain inheritance"],"answer":["Notify clients of a failure in the publisher"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"MQTT uses publish/subscribe. How does the publisher know who is subscribing?","options":["Publisher uses the 'Eye of Sauron'","The publisher doesn't know","The publisher gets notified when they subscribe","The subscriber informs the publisher"],"answer":["The publisher doesn't know"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"Which of the following is NOT a client type in MQTT?","options":["Publisher","Producer","Subscriber","Broker"],"answer":["Producer"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"Which QoS level in MQTT ensures message delivery AT LEAST ONCE?","options":["QoS 1","QoS 0","QoS 2","None of them"],"answer":["QoS 1"],"type":"single"},
+  {"week":"Week 3: CoAP & MQTT","q":"Which of the following is NOT a characteristic of MQTT?","options":["Quality of Service (QoS)","Low overhead","Publish/subscribe messaging model","Request/response messaging model"],"answer":["Request/response messaging model"],"type":"single"},
+  {"week":"Week 4: Mesh Networking","q":"What is the primary feature of a wireless mesh network?","options":["Centralized architecture","Decentralized architecture","Limited to indoor use only","Single-hop communication"],"answer":["Decentralized architecture"],"type":"single"},
+  {"week":"Week 4: Mesh Networking","q":"What is a disadvantage of simple flooding in mesh networks?","options":["Maximum use of battery power","It generates a large number of redundant messages","It is too simple to implement","Lack of data security"],"answer":["It generates a large number of redundant messages"],"type":"single"},
+  {"week":"Week 4: Mesh Networking","q":"Which flooding algorithm divides the network into subnets for routing?","options":["Selective Flooding","Simple Flooding","Reduced Flooding","Adaptive Flooding"],"answer":["Reduced Flooding"],"type":"single"},
+  {"week":"Week 4: Mesh Networking","q":"What does Adaptive Flooding adjust based on?","options":["Network conditions and resource availability","Static configurations","Number of connected nodes","The time of day"],"answer":["Number of connected nodes"],"type":"single"},
+  {"week":"Week 4: Mesh Networking","q":"In a distributed mesh network, how are routes between nodes established?","options":["All communication goes through a master node","Nodes communicate to determine adjacency and routes","Through a central authority","Using a single, static route"],"answer":["Nodes communicate to determine adjacency and routes"],"type":"single"},
+  {"week":"Week 4: Mesh Networking","q":"What is a typical method to prevent malicious nodes from joining a wireless mesh network?","options":["Authentication","Ignoring new nodes","Decreasing signal strength","Redundancy"],"answer":["Authentication"],"type":"single"},
+  {"week":"Week 4: Mesh Networking","q":"Which characteristic is NOT a feature of wireless mesh networking?","options":["Efficient data routing","Scalability","Self-healing","Centralized architecture"],"answer":["Centralized architecture"],"type":"single"},
+  {"week":"Week 4: Mesh Networking","q":"Which is NOT a challenge mentioned for wireless mesh networks?","options":["Interference and reliability","Bandwidth allocation","Timing and synchronization","Unlimited bandwidth"],"answer":["Unlimited bandwidth"],"type":"single"},
+  {"week":"Week 4: Mesh Networking","q":"In mesh networks, what does 'self-healing' refer to?","options":["The ability to manually repair physical damage","The network's ability to automatically reroute data if a node fails","The process of adding new nodes to the network","The use of hardware issues without human intervention"],"answer":["The network's ability to automatically reroute data if a node fails"],"type":"single"},
+  {"week":"Week 4: Mesh Networking","q":"Dynamic Source Routing has multiple routes per destination.","options":["True","False"],"answer":["True"],"type":"tf"},
+  {"week":"Week 4: Mesh Networking","q":"OLSR Protocol uses triggered updates whenever there is a topology change.","options":["True","False"],"answer":["False"],"type":"tf"},
+  {"week":"Week 4: Mesh Networking","q":"The OLSR protocol uses ______ to optimize transmission.","options":["Dual point relays","Single point relays","Multipoint relays","No relays"],"answer":["Multipoint relays"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"What does LoRa stand for?","options":["Low Range","Long Range","Long Radio","Long Resonance"],"answer":["Long Range"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"What does LoRaWAN stand for?","options":["Low Range Wide Area Network","Low Radiation Wireless Access Network","Logical Routing WAN","Long Range Wide Area Network"],"answer":["Long Range Wide Area Network"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"What type of modulation is used in LoRa?","options":["Chirp Spread Spectrum (CSS)","Phase-Shift Keying (PSK)","Frequency Shift Keying (FSK)","Amplitude Modulation (AM)"],"answer":["Chirp Spread Spectrum (CSS)"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"LoRa is primarily used for?","options":["Long-range, low-power communication","High-speed data transmission","Audio and video transmission","Short-range communication"],"answer":["Long-range, low-power communication"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"What is the main DRAWBACK of using LoRa for IoT applications?","options":["Limited data rate","Short range","Long range","High power consumption"],"answer":["Limited data rate"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"What are the main ADVANTAGES of LoRa? (Select all that apply)","options":["High data rate","Low power consumption","Long range","Low data rate"],"answer":["Low power consumption","Long range"],"type":"multi"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"In LoRa, increasing the Spreading Factor (SF) does what?","options":["Decreases range and increases data rate","Increases range and decreases data rate","Increases both range and data rate","Decreases both range and data rate"],"answer":["Increases range and decreases data rate"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"LoRa's spreading factor affects:","options":["Power consumption only","Modulation technique","Operating frequency","Data rate and range"],"answer":["Data rate and range"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"Which Sub-GHz ISM frequency does LoRa operate in Singapore?","options":["2.4 GHz","923 MHz","868 MHz","466 MHz"],"answer":["923 MHz"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"LoRa modulation technique sits at which OSI layer?","options":["Application","Session","Datalink","Network","Transport","Presentation","Physical"],"answer":["Physical"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"LoRaWAN sits at which OSI layer?","options":["Application","Session","Datalink","Network","Transport","Presentation","Physical"],"answer":["Datalink"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"The main function of the Device EUI in LoRaWAN?","options":["To define the device's operating frequency","To encrypt data","To specify the data rate","To identify the device uniquely on the network"],"answer":["To identify the device uniquely on the network"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"Which LoRaWAN class is best suited for applications requiring MINIMAL LATENCY?","options":["Class D","Class A","Class C","Class B"],"answer":["Class C"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"Which LoRaWAN class is designed for bidirectional end-devices with SCHEDULED RECEIVE SLOTS?","options":["Class C","Class B","Class D","Class A"],"answer":["Class B"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"Battery powered actuator, energy efficient, slotted communication synchronized with a beacon = Which LoRaWAN Class?","options":["C","A","B","D"],"answer":["B"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"LoRaWAN's network server is responsible for:","options":["Directly interacting with end-user applications","Controlling the output of end devices","Managing the radio frequency spectrum","Processing and forwarding data to application servers"],"answer":["Processing and forwarding data to application servers"],"type":"single"},
+  {"week":"Week 5: LoRa & LoRaWAN","q":"Link Budget refers to:","options":["The amount of loss that a data link should have","The difference between minimum received power and actual receiver maximum power","A connection between two entities","The amount of loss a data link can tolerate to operate properly"],"answer":["The amount of loss a data link can tolerate to operate properly"],"type":"single"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"WiFi HaLow is also known as?","options":["802.11f","802.11ac","802.11ax","802.11ah"],"answer":["802.11ah"],"type":"single"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"What is the operating frequency of HaLow?","options":["900 Hz","Sub-1 GHz","2.4 GHz","5 GHz"],"answer":["Sub-1 GHz"],"type":"single"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"What is the typical range of HaLow compared to traditional Wi-Fi?","options":["Longer range","Shorter range","Unlimited range","Same range"],"answer":["Longer range"],"type":"single"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"Main advantages of HaLow over traditional Wi-Fi? (Select all that apply)","options":["Better security","Greater range","Lower power consumption","Faster speeds"],"answer":["Greater range","Lower power consumption"],"type":"multi"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"All 802.11 devices are compatible with each other.","options":["True","False"],"answer":["False"],"type":"tf"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"How many overlapping WiFi channels are there for the 2.4GHz Band?","options":["14","3","12","11"],"answer":["11"],"type":"single"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"Which channel access technique is used in HaLow?","options":["CSMA with Collision Anticipation","CSMA with Collision Avoidance","CSMA with Collision Prevention","CSMA with Collision Detection"],"answer":["CSMA with Collision Avoidance"],"type":"single"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"Power management modes available in 802.11 networks? (Select all that apply)","options":["Power Save Mode","Doze Mode","Awake Mode","Active Mode"],"answer":["Power Save Mode","Active Mode"],"type":"multi"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"What is included in the beacon to notify stations about buffered frames?","options":["Traffic Intimation Map","Traffic Notification Map","Traffic Indication Map","Traffic Availability Map"],"answer":["Traffic Indication Map"],"type":"single"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"Standards common across IEEE 802? (Select all that apply)","options":["802.1 Bridging","802.3 Ethernet","802.16 WiMAX","802.17 Resilient Packet Ring","802.2 Logical Link Control"],"answer":["802.1 Bridging","802.2 Logical Link Control"],"type":"multi"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"Packets that help solve the hidden node problem in 802.11? (Select all that apply)","options":["Clear To Send (CTS) Packet","Request To Send (RTS) Packet","Clear to Share Packet","Request to Share Packet","Acknowledgment Packets"],"answer":["Clear To Send (CTS) Packet","Request To Send (RTS) Packet"],"type":"multi"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"The 'Data Unit' gets larger as it goes _____ the OSI stack.","options":["up","across","crisscross","down"],"answer":["down"],"type":"single"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"Which parameter determines the modulation and coding scheme?","options":["Data Transmission Rate","None of the options","Wireless Communication technique","Signal to Noise Ratio"],"answer":["Signal to Noise Ratio"],"type":"single"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"Advantages of using Relays in HaLow? (Select all that apply)","options":["Relays require devices to transmit at lower data rate (consuming low power)","Relays enable devices to transmit at high data rate","Relays allow a connection between two entities","Relays improve reliability of data transmission"],"answer":["Relays require devices to transmit at lower data rate (consuming low power)","Relays improve reliability of data transmission"],"type":"multi"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"How does HaLow address the shortage of Duration/ID field for Network Allocation Vector?","options":["Uses Association ID for frame length","Does not send any mechanism","Uses Restricted Access Window mechanism","Uses Response Indication Deferral mechanism"],"answer":["Uses Response Indication Deferral mechanism"],"type":"single"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"Frames transmitted by AP when a node joins BSS using ACTIVE scanning?","options":["Probe Response Frame","Association Request Frame","Association Response Frame","Probe Request Frame"],"answer":["Probe Response Frame"],"type":"single"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"Frames transmitted by a node when joining BSS using PASSIVE scanning?","options":["Probe Request Frame","Association Request Frame","Probe Response Frame","Association Response Frame"],"answer":["Association Request Frame"],"type":"single"},
+  {"week":"Week 6: WiFi & HaLow (802.11)","q":"Which frames use Null Data Packet (NDP) MAC frame structure in 802.11ah? (Select all that apply)","options":["RTS","PS-Poll Frame","ACK","Beacons","CTS"],"answer":["RTS","ACK","CTS"],"type":"multi"},
+  {"week":"Week 7: Bluetooth & BLE","q":"What does BLE stand for?","options":["Bluetooth Long Engagement","Bluetooth Low Efficiency","Bluetooth Low Energy","Basic Link Encryption"],"answer":["Bluetooth Low Energy"],"type":"single"},
+  {"week":"Week 7: Bluetooth & BLE","q":"Which version of Bluetooth introduced BLE?","options":["Bluetooth 5.0","Bluetooth 4.0","Bluetooth 2.0","Bluetooth 3.0"],"answer":["Bluetooth 4.0"],"type":"single"},
+  {"week":"Week 7: Bluetooth & BLE","q":"Which frequency band does BLE operate in?","options":["915 MHz","5.0 GHz","433 MHz","868 MHz","2.4 GHz"],"answer":["2.4 GHz"],"type":"single"},
+  {"week":"Week 7: Bluetooth & BLE","q":"Typical range achievable with BLE technology?","options":["Up to 100 meters","Up to 150 meters","Up to 50 meters","Up to 10 meters"],"answer":["Up to 100 meters"],"type":"single"},
+  {"week":"Week 7: Bluetooth & BLE","q":"What is the maximum data rate of latest BLE?","options":["4 Mbps","1 Mbps","2 Mbps","3 Mbps"],"answer":["2 Mbps"],"type":"single"},
+  {"week":"Week 7: Bluetooth & BLE","q":"BLE is particularly designed for:","options":["Long-distance communication","Audio streaming","Short-range, low-power communication","High-speed data transfer"],"answer":["Short-range, low-power communication"],"type":"single"},
+  {"week":"Week 7: Bluetooth & BLE","q":"What feature distinguishes BLE from Classic Bluetooth?","options":["Longer range","Better audio quality","Higher data transfer rates","Lower energy consumption"],"answer":["Lower energy consumption"],"type":"single"},
+  {"week":"Week 7: Bluetooth & BLE","q":"Which scheme is used by Bluetooth?","options":["Pyramid scheme","Frequency hopping TDD scheme","DSSS TDD scheme","Frequency hopping FDD scheme","DSSS FDD scheme"],"answer":["Frequency hopping TDD scheme"],"type":"single"},
+  {"week":"Week 7: Bluetooth & BLE","q":"BLE supports which communication topologies? (Select all that apply)","options":["Point-to-Point","Star","Bus","Mesh"],"answer":["Point-to-Point","Star","Mesh"],"type":"multi"},
+  {"week":"Week 7: Bluetooth & BLE","q":"Which topologies does Bluetooth 4.0 support? (Select all that apply)","options":["Ring","Scatter Net","Star","Mesh"],"answer":["Scatter Net","Star"],"type":"multi"},
+  {"week":"Week 7: Bluetooth & BLE","q":"What does 'Pairing' in BLE involve?","options":["Connecting two devices for data transfer","Exchanging security keys for secure communication","Adjusting the power level for optimal connection","Broadcasting data to multiple devices"],"answer":["Exchanging security keys for secure communication"],"type":"single"},
+  {"week":"Week 7: Bluetooth & BLE","q":"What is a characteristic of BLE 'Advertising' mode?","options":["High data transfer rate","Long-range communication","Secure data encryption","Device discovery and connection establishment"],"answer":["Device discovery and connection establishment"],"type":"single"},
+  {"week":"Week 7: Bluetooth & BLE","q":"Bluetooth has forty 2-MHz channels. How many are reserved for advertising?","options":["3"],"answer":["3"],"type":"numerical"},
+  {"week":"Week 7: Bluetooth & BLE","q":"In BLE, what is a 'GATT'?","options":["Generic Access Transmission Technique","Generic Authentication Transfer Tool","Generic Attribute Profile","Generic Audio Transmission Technology"],"answer":["Generic Attribute Profile"],"type":"single"},
+  {"week":"Week 7: Bluetooth & BLE","q":"In BLE, what is the role of a 'Central' device?","options":["Acts as intermediary between two devices","Broadcasts data to peripheral devices","Only receives data","Connects to and controls peripheral devices"],"answer":["Connects to and controls peripheral devices"],"type":"single"},
+  {"week":"Week 7: Bluetooth & BLE","q":"Bob sends 300 bits per slot (Bluetooth). How many slots to send 600 bits?","options":["2","3","4"],"answer":["3"],"type":"numerical"},
+  {"week":"Week 7: Bluetooth & BLE","q":"Bob sends 300 bits per slot (Bluetooth). How many slots to send 1200 bits?","options":["4","5","6"],"answer":["5"],"type":"numerical"},
+  {"week":"Week 7: Bluetooth & BLE","q":"Spread spectrum signal = 180MHz, signal bandwidth = 15MHz. How many carrier frequencies required?","options":["12"],"answer":["12"],"type":"numerical"},
+  {"week":"Week 7: Bluetooth & BLE","q":"If number of carrier frequencies = 25, how many output bits must PRN generator produce? (FHSS)","options":["5"],"answer":["5"],"type":"numerical"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"What is Cloud Computing?","options":["A way to access software and services over the internet","A way to store data on your local computer","A way to physically connect multiple computers","A way to protect data from unauthorized access"],"answer":["A way to access software and services over the internet"],"type":"single"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"Which is a benefit of cloud computing?","options":["Limited data accessibility","Lower maintenance costs","Limited scalability","Higher upfront costs"],"answer":["Lower maintenance costs"],"type":"single"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"What is IaaS?","options":["Interaction as a Service","Infrastructure as a Service","Internet as a Service","Intelligence as a Service"],"answer":["Infrastructure as a Service"],"type":"single"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"Which cloud model provides access to software applications over the internet?","options":["Function as a Service (FaaS)","Software as a Service (SaaS)","Platform as a Service (PaaS)","Infrastructure as a Service (IaaS)"],"answer":["Software as a Service (SaaS)"],"type":"single"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"Which is NOT a Cloud Service Model?","options":["Infrastructure as a Service","Virtualization as a Service","Software as a Service","Platform as a Service"],"answer":["Virtualization as a Service"],"type":"single"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"Which statement is FALSE about Hypervisors?","options":["Type 1 Hypervisors are also known as Bare metal hypervisor","Type 1 hypervisors do not host OS","Type 2 Hypervisors use host OS","Type 2 Hypervisors are also known as Bare metal hypervisor"],"answer":["Type 2 Hypervisors are also known as Bare metal hypervisor"],"type":"single"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"Which is TRUE about Fog Computing?","options":["Fog is located nearer to Cloud computing","Cloud is centralized; Fog is decentralized","Fog provides low latency","Fog computing can replace cloud computing"],"answer":["Cloud is centralized; Fog is decentralized"],"type":"single"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"Which is NOT an advantage of Cloud Computing (per lecture)?","options":["Resilient","Virtualization","Management","Integration"],"answer":["Integration"],"type":"single"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"Which is NOT an advantage of Edge Computing?","options":["Faster response time","Low investment cost","Significantly reduced data storage requirements","Reduces Network Bandwidth Requirements"],"answer":["Low investment cost"],"type":"single"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"Which is NOT a typical deployment challenge for Edge computing devices (per lecture)?","options":["Thermal","Power","Sound proofing","Waterproofing"],"answer":["Sound proofing"],"type":"single"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"AIoT stands for?","options":["Artificial Internet of Things","Artificial Intelligence of Things","Advanced IoT","Artificial Intelligence on IoT"],"answer":["Artificial Intelligence on IoT"],"type":"single"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"IIoT stands for Industrial IoT.","options":["True","False"],"answer":["True"],"type":"tf"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"What is the purpose of AIoT?","options":["To replace IoT devices with AI-powered devices","To improve the design of IoT devices","To create a secure network for IoT devices","To integrate artificial intelligence with the internet of things"],"answer":["To integrate artificial intelligence with the internet of things"],"type":"single"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"Which is NOT a benefit of AIoT? (best answer)","options":["Enhanced security","Increased productivity","Improved energy efficiency","Decreased complexity"],"answer":["Decreased complexity"],"type":"single"},
+  {"week":"Week 8: Cloud, Edge & AIoT","q":"Which is NOT a potential use case for AIoT in industrial automation?","options":["Quality control","Employee time tracking","Inventory management","Predictive maintenance"],"answer":["Employee time tracking"],"type":"single"},
+  {"week":"Week 9: NB-IoT & Cellular IoT","q":"Which is NOT a mode of operations for NB-IoT?","options":["Guard band","Stand Alone","In-Band","Out-Band"],"answer":["Out-Band"],"type":"single"},
+  {"week":"Week 9: NB-IoT & Cellular IoT","q":"Which IoT application is best suited for NB-IoT?","options":["Real-time video streaming","Wearable fitness trackers","Smart metering in rural areas","High-speed asset tracking"],"answer":["Smart metering in rural areas"],"type":"single"},
+  {"week":"Week 9: NB-IoT & Cellular IoT","q":"Which organization is responsible for NB-IoT standards?","options":["3GPP","IETF","Wi-Fi Alliance","IEEE"],"answer":["3GPP"],"type":"single"},
+  {"week":"Week 9: NB-IoT & Cellular IoT","q":"Key advantage of NB-IoT over traditional cellular networks?","options":["High Data Rates","Wide Coverage Area","High Reliability","Low Power Consumption"],"answer":["Low Power Consumption"],"type":"single"},
+  {"week":"Week 9: NB-IoT & Cellular IoT","q":"Why is HTTP not always suitable for IoT devices?","options":["It has high overhead and power consumption","It lacks support for small data transfers","It is incompatible with IoT hardware","It is not an IP-based protocol"],"answer":["It has high overhead and power consumption"],"type":"single"},
+  {"week":"Week 9: NB-IoT & Cellular IoT","q":"Which NB-IoT feature allows devices to 'sleep' for extended periods (power saving)?","options":["VoLTE","PSM","eDRX","NIDD"],"answer":["PSM"],"type":"single"},
+  {"week":"Week 9: NB-IoT & Cellular IoT","q":"Why is NIDD particularly suitable for NB-IoT?","options":["Allows direct device-to-device communication","Uses a broadcast communication model","Supports high-bandwidth applications","Eliminates IP overhead, optimizing for small data packets"],"answer":["Eliminates IP overhead, optimizing for small data packets"],"type":"single"},
+  {"week":"Week 9: NB-IoT & Cellular IoT","q":"Which network element interfaces NIDD with IoT application servers in NB-IoT?","options":["MME","EPC","S-GW","SCEF"],"answer":["SCEF"],"type":"single"},
+  {"week":"Week 9: NB-IoT & Cellular IoT","q":"Which factors determine the Bit rate of a communication system?","options":["Noise level and power of transmitted signal","Type of modulation and size of communication channel","The modulation scheme and the symbol rate","Carrier frequency and signal bandwidth"],"answer":["The modulation scheme and the symbol rate"],"type":"single"},
+  {"week":"Week 9: NB-IoT & Cellular IoT","q":"Which codes used in CDMA are considered orthogonal?","options":["All of the above","<0,0,1,1> and <1,0,1,0>","<0,1,0,1> and <1,0,1,0>","<0,1,0,1> and <1,0,0,1>"],"answer":["<0,1,0,1> and <1,0,1,0>"],"type":"single"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"What does IEEE 802.15.4 primarily focus on?","options":["Long-range wireless communication","High-bandwidth local area networking","Low-rate wireless personal area networks","High-speed internet connectivity"],"answer":["Low-rate wireless personal area networks"],"type":"single"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"Which modulation is used in IEEE 802.15.4?","options":["Direct Sequence Spread Spectrum (DSSS)","Phase-Shift Keying (PSK)","OFDM","Frequency Shift Keying (FSK)"],"answer":["Direct Sequence Spread Spectrum (DSSS)"],"type":"single"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"IEEE 802.15.4 defines which network layers? (Select all that apply)","options":["Session Layer","Transport Layer","Application Layer","Physical (PHY)","Data Link Layer","Network Layer"],"answer":["Physical (PHY)","Data Link Layer"],"type":"multi"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"IEEE 802.15.4 is a basis for which IoT protocols? (Select all that apply)","options":["LTE","Bluetooth","WiFi","Thread","ZigBee"],"answer":["Thread","ZigBee"],"type":"multi"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"6LowPAN technology sits on top of ...","options":["IEEE 802.15.16","Anything within IEEE 802","IEEE 802.15.4","IEEE 802.15.1"],"answer":["IEEE 802.15.4"],"type":"single"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"The full form of 6LoWPAN is ...","options":["6 Low Power Wireless Personal Area Network","IPv6 over Low-Power Wide Area Networks","IPv6 over Low-Power Wireless Personal Area Networks","6 Low Power Wide Personal Area Network"],"answer":["IPv6 over Low-Power Wireless Personal Area Networks"],"type":"single"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"6LowPAN is the same as IEEE 802.15.4.","options":["True","False"],"answer":["False"],"type":"tf"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"6LowPAN uses traditional IPv4 as its networking layer.","options":["True","False"],"answer":["False"],"type":"tf"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"Which is NOT true about Border Routers in a Thread Network?","options":["Border Routers provide services to devices within the Thread Network only","A REED can be configured as a Border Router","Border Router can provide connectivity from Thread to 802.11","There cannot be more than 3 border routers in a Thread Network"],"answer":["There cannot be more than 3 border routers in a Thread Network"],"type":"single"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"Which is NOT a characteristic of Thread?","options":["The range is more than enough to cover a home","Devices can easily join the network","There is no single point of failure","Thread can support large networks"],"answer":["Devices can easily join the network"],"type":"single"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"Which is TRUE about Thread Network?","options":["IPv6 ULA address is used for mesh establishment and link maintenance","Every Thread node is assigned its own IPv6 address","Thread enables full mesh connectivity between all devices","A Thread network can employ more than 10 routers"],"answer":["A Thread network can employ more than 10 routers"],"type":"single"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"Phases required for a device to re-attach to a Thread Network? (Select all that apply)","options":["Discovery","Commissioning","Attaching","Configuring"],"answer":["Attaching"],"type":"multi"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"Which are used by IEEE 802.15.4? (Select all that apply)","options":["Frequency Hopping Spread Spectrum","Direct Sequence Spread Spectrum","CSMA with Collision Avoidance","CSMA with Collision Detection"],"answer":["Direct Sequence Spread Spectrum","CSMA with Collision Avoidance"],"type":"multi"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"If EUI64 address is 62::1, what is the link local IPv6 address? (6LoWPAN protocol)","options":["FE80:0:0:0:60:1","FE80:0:0:0:62::1","None of answer mentioned","FE80:0:0:0:66::1","FE80:0:0:0:22::1"],"answer":["FE80:0:0:0:22::1"],"type":"single"},
+  {"week":"Week 10: Thread, 802.15.4 & 6LoWPAN","q":"DSSS chipping sequence = 101101001010 (12 chips). Bob transmitted 330 total bits. How many actual data bits?","options":["30"],"answer":["30"],"type":"numerical"},
+  {"week":"Week 11: ZigBee & Z-Wave","q":"Z-Wave is an implementation of a ZigBee protocol.","options":["True","False"],"answer":["False"],"type":"tf"},
+  {"week":"Week 11: ZigBee & Z-Wave","q":"What is the purpose of ZigBee communication?","options":["Healthcare","Industrial Control","Home Automation","All of the above"],"answer":["All of the above"],"type":"single"},
+  {"week":"Week 11: ZigBee & Z-Wave","q":"Role of ZigBee coordinator in the ZigBee network?","options":["Controls the network","Communicates with other nodes","Both","None"],"answer":["Both"],"type":"single"},
+  {"week":"Week 11: ZigBee & Z-Wave","q":"Role of ZigBee end devices in the ZigBee network?","options":["Communicates with other nodes","Controls the network","Both","None"],"answer":["Communicates with other nodes"],"type":"single"},
+  {"week":"Week 11: ZigBee & Z-Wave","q":"Which does NOT contribute to routing in a ZigBee network?","options":["ZigBee End Device","ZigBee Coordinator","ZigBee Router","ZigBee Master"],"answer":["ZigBee End Device"],"type":"single"},
+  {"week":"Week 11: ZigBee & Z-Wave","q":"Which network topology is NOT supported by ZigBee?","options":["Bus","Star","Mesh","Cluster Tree"],"answer":["Bus"],"type":"single"},
+  {"week":"Week 11: ZigBee & Z-Wave","q":"What is needed to be a 'ZigBee Compliant Product'? (Select all that apply)","options":["IEEE 802.15.4","IEEE 802.11","Application Profile","ZigBee Stack"],"answer":["IEEE 802.15.4","Application Profile","ZigBee Stack"],"type":"multi"},
+  {"week":"Week 11: ZigBee & Z-Wave","q":"Which frequency does Z-Wave operate on?","options":["915 MHz","2.4 GHz","5 GHz","868 MHz"],"answer":["868 MHz"],"type":"single"},
+  {"week":"Week 11: ZigBee & Z-Wave","q":"Which is NOT a feature of ZigBee? (best answer)","options":["Real-time Communication","Large Bandwidth","High Security","Low Power Consumption"],"answer":["Large Bandwidth"],"type":"single"}
+];
+
+const TYPE_LABELS = { tf: 'True/False', multi: 'Multi-select', numerical: 'Numerical', single: 'Single choice' };
+const TYPE_CLASS  = { tf: 'badge-tf',   multi: 'badge-multi',  numerical: 'badge-num',  single: 'badge-single' };
+
+// Quiz state
+let questions = [];
+let currentIndex = 0;
+let answered = {};        // localIndex -> { selected: [], correct: bool }
+let scoreCorrect = 0;
+let scoreWrong = 0;
+let streak = 0;
+let bestStreak = 0;
+let shuffled = false;
+let filterWeek = 'all';
+let filterType = 'all';
+
+// ── Filtering / init ──────────────────────────────────────────────────────────
+
+function getFiltered() {
+  return ALL_QUESTIONS
+    .map((q, i) => ({ ...q, origIdx: i }))
+    .filter(q => {
+      if (filterWeek !== 'all' && q.week !== filterWeek) return false;
+      if (filterType !== 'all' && q.type !== filterType) return false;
+      return true;
+    });
+}
+
+function init() {
+  const weeks = [...new Set(ALL_QUESTIONS.map(q => q.week))];
+  const sel = document.getElementById('weekFilter');
+  weeks.forEach(w => {
+    const opt = document.createElement('option');
+    opt.value = w; opt.textContent = w;
+    sel.appendChild(opt);
+  });
+  sel.onchange = applyFilter;
+  document.getElementById('typeFilter').onchange = applyFilter;
+  applyFilter();
+}
+
+function applyFilter() {
+  filterWeek = document.getElementById('weekFilter').value;
+  filterType = document.getElementById('typeFilter').value;
+  questions = getFiltered();
+  if (shuffled) questions = questions.sort(() => Math.random() - 0.5);
+  resetState();
+  renderQuestion();
+}
+
+function resetState() {
+  currentIndex = 0;
+  answered = {};
+  scoreCorrect = 0;
+  scoreWrong = 0;
+  streak = 0;
+  bestStreak = 0;
+  updateStats();
+}
+
+function toggleShuffle() {
+  shuffled = !shuffled;
+  applyFilter();
+}
+
+function resetQuiz() {
+  shuffled = false;
+  document.getElementById('weekFilter').value = 'all';
+  document.getElementById('typeFilter').value = 'all';
+  applyFilter();
+}
+
+// ── Rendering ─────────────────────────────────────────────────────────────────
+
+function renderQuestion() {
+  if (questions.length === 0) {
+    document.getElementById('quizCard').innerHTML =
+      '<div style="text-align:center;padding:48px;color:#90caf9;font-size:1rem;">No questions match your filters.</div>';
+    document.getElementById('navNum').textContent = '0 / 0';
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('progressText').textContent = '0 questions';
+    return;
+  }
+
+  const q = questions[currentIndex];
+  const isAnswered = answered[currentIndex] !== undefined;
+  const isMulti = q.type === 'multi';
+
+  // Progress
+  const pct = Math.round(((currentIndex + 1) / questions.length) * 100);
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('navNum').textContent = `${currentIndex + 1} / ${questions.length}`;
+  document.getElementById('progressText').textContent = `${questions.length} questions`;
+
+  // Header
+  document.getElementById('cardWeek').innerHTML =
+    `${q.week} <span class="card-type-badge ${TYPE_CLASS[q.type]}">${TYPE_LABELS[q.type]}</span>`;
+  document.getElementById('cardQuestion').textContent = q.q;
+  document.getElementById('multiHint').style.display = (isMulti && !isAnswered) ? '' : 'none';
+
+  // Options
+  const list = document.getElementById('optionsList');
+  list.innerHTML = '';
+
+  if (isMulti) {
+    q.options.forEach(opt => {
+      const row = document.createElement('div');
+      row.className = 'opt-check-row';
+      row.dataset.value = opt;
+
+      if (isAnswered) {
+        row.classList.add('disabled');
+        const wasSelected = answered[currentIndex].selected.includes(opt);
+        const isCorrect = q.answer.includes(opt);
+        if (wasSelected && isCorrect)   row.classList.add('correct');
+        else if (wasSelected)           row.classList.add('wrong-selected');
+        else if (isCorrect)             row.classList.add('missed');
+      }
+
+      const box = document.createElement('div');
+      box.className = 'opt-check-box';
+      box.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12">
+        <polyline points="1.5,6 4.5,9 10.5,3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+      </svg>`;
+
+      if (isAnswered && answered[currentIndex].selected.includes(opt)) {
+        row.classList.add('selected');
+      }
+
+      const text = document.createElement('span');
+      text.className = 'opt-check-text';
+      if (isAnswered) {
+        const wasSelected = answered[currentIndex].selected.includes(opt);
+        const isCorrect = q.answer.includes(opt);
+        if (wasSelected && isCorrect)   text.textContent = `✓ ${opt}`;
+        else if (wasSelected)           text.textContent = `✗ ${opt}`;
+        else if (isCorrect)             text.textContent = `○ ${opt}  ← correct`;
+        else                            text.textContent = opt;
+      } else {
+        text.textContent = opt;
+        row.addEventListener('click', () => {
+          row.classList.toggle('selected');
+          row.querySelector('.opt-check-box').classList.toggle('selected', row.classList.contains('selected'));
+        });
+      }
+
+      row.appendChild(box);
+      row.appendChild(text);
+      list.appendChild(row);
+    });
+  } else {
+    // Single / TF / numerical
+    q.options.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'opt-btn';
+      btn.textContent = opt;
+
+      if (isAnswered) {
+        btn.disabled = true;
+        const wasSelected = answered[currentIndex].selected.includes(opt);
+        const isCorrect = q.answer.includes(opt);
+        if (wasSelected && isCorrect)   { btn.classList.add('correct');        btn.textContent = `✓  ${opt}`; }
+        else if (wasSelected)           { btn.classList.add('wrong-selected'); btn.textContent = `✗  ${opt}`; }
+        else if (isCorrect)             { btn.classList.add('missed');         btn.textContent = `✓  ${opt}  ← correct`; }
+      } else {
+        btn.addEventListener('click', () => answerSingle(opt));
+      }
+
+      list.appendChild(btn);
+    });
+  }
+
+  // Submit button (multi only, before answering)
+  const submitArea = document.getElementById('submitArea');
+  if (isMulti && !isAnswered) {
+    submitArea.innerHTML = `<div class="action-row">
+      <button class="btn-submit" id="submitBtn" onclick="submitMulti()">Submit answer</button>
+    </div>`;
+  } else {
+    submitArea.innerHTML = '';
+  }
+
+  // Result feedback
+  const fb = document.getElementById('resultFeedback');
+  if (isAnswered) {
+    const wasCorrect = answered[currentIndex].correct;
+    document.getElementById('resultIcon').textContent  = wasCorrect ? '✅' : '❌';
+    document.getElementById('resultLabel').textContent = wasCorrect ? 'Correct!' : 'Incorrect';
+    document.getElementById('resultLabel').className   = 'result-label ' + (wasCorrect ? 'correct' : 'wrong');
+    document.getElementById('resultDetail').textContent =
+      wasCorrect ? '' : `Correct: ${q.answer.join(', ')}`;
+    const isLast = currentIndex === questions.length - 1;
+    document.getElementById('nextBtn').textContent = isLast ? 'See results' : 'Next →';
+    fb.style.display = '';
+  } else {
+    fb.style.display = 'none';
+  }
+}
+
+// ── Answering ─────────────────────────────────────────────────────────────────
+
+function answerSingle(selected) {
+  if (answered[currentIndex] !== undefined) return;
+  const q = questions[currentIndex];
+  const correct = q.answer.length === 1 && q.answer[0] === selected;
+  recordAnswer([selected], correct);
+}
+
+function submitMulti() {
+  if (answered[currentIndex] !== undefined) return;
+  const q = questions[currentIndex];
+  const selected = [...document.querySelectorAll('#optionsList .opt-check-row.selected')]
+    .map(r => r.dataset.value);
+  if (selected.length === 0) { return; }
+  const correct =
+    selected.length === q.answer.length &&
+    q.answer.every(a => selected.includes(a));
+  recordAnswer(selected, correct);
+}
+
+function recordAnswer(selected, correct) {
+  answered[currentIndex] = { selected, correct };
+  if (correct) {
+    scoreCorrect++;
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+  } else {
+    scoreWrong++;
+    streak = 0;
+  }
+  updateStats();
+  renderQuestion();
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+
+function advance() {
+  if (currentIndex < questions.length - 1) {
+    currentIndex++;
+    renderQuestion();
+  } else {
+    showEndScreen();
+  }
+}
+
+function goTo(idx) {
+  if (idx < 0 || idx >= questions.length) return;
+  currentIndex = idx;
+  renderQuestion();
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+
+function updateStats() {
+  document.getElementById('scoreCorrect').textContent  = scoreCorrect;
+  document.getElementById('scoreWrong').textContent    = scoreWrong;
+  const remaining = questions.length - Object.keys(answered).length;
+  document.getElementById('scoreRemaining').textContent = remaining;
+  const badge = document.getElementById('streakBadge');
+  if (streak >= 3) {
+    badge.style.display = '';
+    document.getElementById('streakCount').textContent = streak;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// ── End screen ────────────────────────────────────────────────────────────────
+
+function showEndScreen() {
+  const total = Object.keys(answered).length;
+  const pct   = total > 0 ? Math.round((scoreCorrect / total) * 100) : 0;
+  const cls   = pct >= 80 ? 'great' : pct >= 60 ? 'ok' : 'low';
+  const emoji = pct >= 80 ? '🎉' : pct >= 60 ? '👍' : '📚';
+  const msg   = pct >= 80 ? 'Great work!' : pct >= 60 ? 'Decent effort!' : 'Keep studying!';
+
+  const wrongIdxs = Object.entries(answered)
+    .filter(([, a]) => !a.correct)
+    .map(([i]) => parseInt(i));
+
+  document.getElementById('mainArea').innerHTML = `
+    <div class="end-screen">
+      <h2>${emoji} ${msg}</h2>
+      <div class="final-score ${cls}">${scoreCorrect} / ${total}</div>
+      <div class="end-detail">${pct}% correct &nbsp;·&nbsp; Best streak: ${bestStreak}</div>
+      <button class="btn btn-primary" onclick="resetQuiz()">🔄 Try all again</button>
+      ${wrongIdxs.length > 0
+        ? `<button class="btn btn-secondary" onclick="retryWrong()">❌ Retry ${wrongIdxs.length} wrong</button>`
+        : ''}
+    </div>
+  `;
+  // stash wrong indices for retryWrong
+  window._wrongIdxs = wrongIdxs;
+}
+
+function retryWrong() {
+  const idxs = window._wrongIdxs || [];
+  questions = idxs.map(i => ({ ...questions[i], origIdx: questions[i].origIdx }));
+  currentIndex = 0;
+  answered = {};
+  scoreCorrect = 0;
+  scoreWrong = 0;
+  streak = 0;
+  bestStreak = 0;
+
+  document.getElementById('mainArea').innerHTML = `
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+    </div>
+    <div class="quiz-card" id="quizCard">
+      <div class="card-week" id="cardWeek"></div>
+      <div class="card-question" id="cardQuestion"></div>
+      <div class="multi-hint" id="multiHint" style="display:none">Select all that apply, then click Submit.</div>
+      <div class="options-list" id="optionsList"></div>
+      <div id="submitArea"></div>
+      <div class="result-feedback" id="resultFeedback" style="display:none">
+        <div class="result-icon" id="resultIcon"></div>
+        <div class="result-text">
+          <div class="result-label" id="resultLabel"></div>
+          <div class="result-detail" id="resultDetail"></div>
+        </div>
+        <button class="btn-next" id="nextBtn" onclick="advance()">Next →</button>
+      </div>
+    </div>
+    <div class="nav-row">
+      <button class="nav-btn nav-prev" onclick="goTo(currentIndex - 1)">‹</button>
+      <span class="nav-num" id="navNum">1 / 0</span>
+      <button class="nav-btn nav-next-btn" onclick="goTo(currentIndex + 1)">›</button>
+    </div>
+  `;
+
+  updateStats();
+  renderQuestion();
+}
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    if (answered[currentIndex] !== undefined) advance();
+    else goTo(currentIndex + 1);
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    goTo(currentIndex - 1);
+  } else if (e.key === 'Enter') {
+    const q = questions[currentIndex];
+    if (!q) return;
+    if (answered[currentIndex] !== undefined) advance();
+    else if (q.type === 'multi') submitMulti();
+  }
+});
+
+init();
+</script>
+</body>
+</html>
